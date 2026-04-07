@@ -12,7 +12,12 @@ if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_ap
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
-// Endpoint: Scan Food (Google Gemini Vision)
+// Health check to confirm server is live
+app.get('/', (req, res) => {
+  res.send('NutriChef AI Backend is Online! 🚀');
+});
+
+// Endpoint: Scan Food (Google Gemini 1.5 Flash Vision)
 app.post('/api/scan-food', async (req, res) => {
   try {
     if (!genAI) {
@@ -26,32 +31,23 @@ app.post('/api/scan-food', async (req, res) => {
       }), 2000);
     }
 
-    const { imageBase64 } = req.body; // e.g. "data:image/jpeg;base64,..."
-    
-    // Gemini needs base64 without the mime header string directly for `inlineData`
-    // Convert "data:image/jpeg;base64,/9j/4AAQ..." to just base64 and mime
-    const mimeMatch = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const { imageBase64 } = req.body;
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = "Analyze this food image and estimate the nutrition. Return ONLY a pure JSON object (no markdown, no backticks) with these exact string keys: food_name, estimated_calories, protein, carbs, fats.";
-    const imagePart = {
-      inlineData: {
-        data: base64Data,
-        mimeType
-      }
-    };
-
-    const result = await model.generateContent([prompt, imagePart]);
-    let responseText = result.response.text();
     
-    // Clean potential markdown wrap just in case Gemini ignored the "no backticks" instruction
+    const result = await model.generateContent([
+      { text: prompt },
+      { inlineData: { data: base64Data, mimeType: 'image/jpeg' }}
+    ]);
+
+    let responseText = result.response.text();
+    // Clean markdown backticks if present
     responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-    const parsed = JSON.parse(responseText);
-    res.json(parsed);
+    res.json(JSON.parse(responseText));
 
   } catch (error) {
     console.error("Scanner API Error:", error);
@@ -59,13 +55,12 @@ app.post('/api/scan-food', async (req, res) => {
   }
 });
 
-// Endpoint: Generate Recipes (Google Gemini Text)
+// Endpoint: Generate Recipes (Google Gemini 1.5 Flash Text)
 app.post('/api/generate-recipes', async (req, res) => {
   try {
     const { ingredients } = req.body;
 
     if (!genAI) {
-      console.log("Mocking Recipe Response (No Gemini API Key detected)");
       return setTimeout(() => res.json([
         {
           id: Date.now(),
@@ -85,7 +80,7 @@ app.post('/api/generate-recipes', async (req, res) => {
     const result = await model.generateContent(prompt);
     let responseText = result.response.text();
     
-    // Clean potential markdown wrap
+    // Clean markdown backticks if present
     responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
     res.json(JSON.parse(responseText));
@@ -96,7 +91,7 @@ app.post('/api/generate-recipes', async (req, res) => {
   }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Node Server securely running on http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Node Server securely running on port ${PORT}`);
 });
