@@ -39,7 +39,8 @@ app.post('/api/scan-food', async (req, res) => {
     const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Try 1.5 Flash first
+    // If you still get a 404, we can switch this to "gemini-pro-vision"
 
     const prompt = "Analyze this food image and estimate the nutrition. Return ONLY a pure JSON object (no markdown, no backticks) with these exact string keys: food_name, estimated_calories, protein, carbs, fats.";
     const imagePart = {
@@ -60,7 +61,17 @@ app.post('/api/scan-food', async (req, res) => {
 
   } catch (error) {
     console.error("Scanner API Error:", error);
-    res.status(500).json({ error: "Failed to process image." });
+    // Fallback to gemini-pro-vision if 1.5-flash is not available for this key
+    try {
+      console.log("Attempting fallback to gemini-pro-vision...");
+      const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+      const prompt = "Analyze this food image and estimate the nutrition. Return ONLY a pure JSON object with keys: food_name, estimated_calories, protein, carbs, fats.";
+      const base64Data = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const result = await model.generateContent([prompt, { inlineData: { data: base64Data, mimeType: 'image/jpeg' }}]);
+      res.json(JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()));
+    } catch (fallbackError) {
+      res.status(500).json({ error: "Failed to process image with all models." });
+    }
   }
 });
 
@@ -97,7 +108,16 @@ app.post('/api/generate-recipes', async (req, res) => {
 
   } catch (error) {
     console.error("Recipe API Error:", error);
-    res.status(500).json({ error: "Failed to generate recipes." });
+    // Fallback to gemini-pro
+    try {
+      console.log("Attempting fallback to gemini-pro...");
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const prompt = `Give me 3 recipes for: ${req.body.ingredients.join(", ")}. Reply ONLY with a pure JSON array of objects with keys: id, title, prepTime, difficulty, image, steps.`;
+      const result = await model.generateContent(prompt);
+      res.json(JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()));
+    } catch (fallbackError) {
+      res.status(500).json({ error: "Failed to generate recipes with all models." });
+    }
   }
 });
 
