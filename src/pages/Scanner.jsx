@@ -1,3 +1,6 @@
+// 1. src/pages/Scanner.jsx
+// Paste this into: https://github.com/kwakutrigger43-jpg/NutriChef/edit/main/src/pages/Scanner.jsx
+
 import { useState, useRef } from 'react';
 import { Camera, ImagePlus, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,8 +31,8 @@ export default function Scanner() {
     setStatus('processing');
     
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const res = await fetch(`${API_URL}/scan-food`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${API_URL}/api/scan-food`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64Image })
@@ -140,3 +143,4 @@ export default function Scanner() {
     </div>
   );
 }
+
