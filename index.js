@@ -8,7 +8,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' })); 
 
 let genAI = null;
-if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
+if (process.env.GEMINI_API_KEY) {
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
@@ -28,107 +28,42 @@ app.get('/api/debug-models', async (req, res) => {
   }
 });
 
-// Endpoint: Scan Food (Google Gemini Vision)
+// Endpoint: Scan Food (Google Gemini)
 app.post('/api/scan-food', async (req, res) => {
   try {
-    if (!genAI) {
-      console.log("Mocking Scanner Response (No Gemini API Key detected)");
-      return setTimeout(() => res.json({
-        food_name: 'Grilled Salmon Bowl',
-        estimated_calories: 640,
-        protein: '42g',
-        carbs: '58g',
-        fats: '24g'
-      }), 2000);
-    }
+    if (!genAI) throw new Error("GEMINI_API_KEY is missing in Render settings.");
 
-    const { imageBase64 } = req.body; // e.g. "data:image/jpeg;base64,..."
-    
-    // Gemini needs base64 without the mime header string directly for `inlineData`
-    // Convert "data:image/jpeg;base64,/9j/4AAQ..." to just base64 and mime
-    const mimeMatch = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const { imageBase64 } = req.body;
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Try 1.5 Flash first
-    // If you still get a 404, we can switch this to "gemini-pro-vision"
-
-    const prompt = "Analyze this food image and estimate the nutrition. Return ONLY a pure JSON object (no markdown, no backticks) with these exact string keys: food_name, estimated_calories, protein, carbs, fats.";
-    const imagePart = {
-      inlineData: {
-        data: base64Data,
-        mimeType
-      }
-    };
-
-    const result = await model.generateContent([prompt, imagePart]);
-    let responseText = result.response.text();
+    // Try Gemini 1.5 Flash first
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = "Analyze this food image and estimate the nutrition. Return ONLY a pure JSON object with keys: food_name, estimated_calories, protein, carbs, fats.";
     
-    // Clean potential markdown wrap just in case Gemini ignored the "no backticks" instruction
-    responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    const parsed = JSON.parse(responseText);
-    res.json(parsed);
+    const result = await model.generateContent([prompt, { inlineData: { data: base64Data, mimeType: 'image/jpeg' }}]);
+    res.json(JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()));
 
   } catch (error) {
-    console.error("Scanner API Error:", error);
-    // Fallback to gemini-pro-vision if 1.5-flash is not available for this key
-    try {
-      console.log("Attempting fallback to gemini-pro-vision...");
-      const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
-      const prompt = "Analyze this food image and estimate the nutrition. Return ONLY a pure JSON object with keys: food_name, estimated_calories, protein, carbs, fats.";
-      const base64Data = req.body.imageBase64.replace(/^data:image\/\w+;base64,/, "");
-      const result = await model.generateContent([prompt, { inlineData: { data: base64Data, mimeType: 'image/jpeg' }}]);
-      res.json(JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()));
-    } catch (fallbackError) {
-      res.status(500).json({ error: "Failed to process image with all models." });
-    }
+    console.error("Scanner Error:", error);
+    res.status(500).json({ error: "AI failed to analyze the photo. Please check your API Key in Render." });
   }
 });
 
-// Endpoint: Generate Recipes (Google Gemini Text)
+// Endpoint: Generate Recipes
 app.post('/api/generate-recipes', async (req, res) => {
   try {
+    if (!genAI) throw new Error("GEMINI_API_KEY is missing in Render settings.");
     const { ingredients } = req.body;
 
-    if (!genAI) {
-      console.log("Mocking Recipe Response (No Gemini API Key detected)");
-      return setTimeout(() => res.json([
-        {
-          id: Date.now(),
-          title: `Pan-seared ${ingredients[0] || 'Meal'}`,
-          prepTime: '25 mins',
-          difficulty: 'Medium',
-          image: 'https://images.unsplash.com/photo-1598514982205-f36b96d1e8d4?q=80&w=2070&auto=format&fit=crop',
-          steps: ['Preheat the pan.', 'Add ingredients.', 'Cook thoroughly.', 'Serve and enjoy!']
-        }
-      ]), 1500);
-    }
-
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `You are a professional chef. Given these ingredients: ${ingredients.join(", ")}, reply ONLY with a pure JSON array (no markdown, no backticks) of 3 recipe objects. Keys MUST be: id (integer), title (string), prepTime (string), difficulty (string), image (an unsplash photo URL or empty), steps (array of strings).`;
+    const prompt = `Give me 3 recipes for: ${ingredients.join(", ")}. Reply ONLY with a pure JSON array of objects with keys: id, title, prepTime, difficulty, image, steps.`;
 
     const result = await model.generateContent(prompt);
-    let responseText = result.response.text();
-    
-    // Clean potential markdown wrap
-    responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    res.json(JSON.parse(responseText));
+    res.json(JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()));
 
   } catch (error) {
-    console.error("Recipe API Error:", error);
-    // Fallback to gemini-pro
-    try {
-      console.log("Attempting fallback to gemini-pro...");
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-      const prompt = `Give me 3 recipes for: ${req.body.ingredients.join(", ")}. Reply ONLY with a pure JSON array of objects with keys: id, title, prepTime, difficulty, image, steps.`;
-      const result = await model.generateContent(prompt);
-      res.json(JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()));
-    } catch (fallbackError) {
-      res.status(500).json({ error: "Failed to generate recipes with all models." });
-    }
+    console.error("Recipe Error:", error);
+    res.status(500).json({ error: "AI failed to generate recipes." });
   }
 });
 
