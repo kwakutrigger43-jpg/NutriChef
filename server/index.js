@@ -5,7 +5,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); 
+app.use(express.json({ limit: '50mb' }));
 
 let genAI = null;
 if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
@@ -37,10 +37,10 @@ app.post('/api/scan-food', async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = "Analyze this food image and estimate the nutrition. Return ONLY a pure JSON object (no markdown, no backticks) with these exact string keys: food_name, estimated_calories, protein, carbs, fats.";
-    
+
     const result = await model.generateContent([
       { text: prompt },
-      { inlineData: { data: base64Data, mimeType: 'image/jpeg' }}
+      { inlineData: { data: base64Data, mimeType: 'image/jpeg' } }
     ]);
 
     let responseText = result.response.text();
@@ -79,7 +79,7 @@ app.post('/api/generate-recipes', async (req, res) => {
 
     const result = await model.generateContent(prompt);
     let responseText = result.response.text();
-    
+
     // Clean markdown backticks if present
     responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
