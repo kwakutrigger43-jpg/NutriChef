@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-apple-green: #34C759;
+  --color-apple-light: #F2F2F7;
+  --color-apple-gray: #8E8E93;
+  --color-apple-dark: #1C1C1E;
+  
+  --font-sans: 'Inter', system-ui, sans-serif;
+  
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+}
+
+@layer base {
+  body {
+    @apply bg-apple-light text-apple-dark font-sans antialiased;
+  }
+}
