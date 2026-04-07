@@ -12,6 +12,11 @@ if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_ap
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
+// Health check to confirm server is live
+app.get('/', (req, res) => {
+  res.send('NutriChef AI Backend is Online! 🚀');
+});
+
 // Endpoint: Scan Food (Google Gemini Vision)
 app.post('/api/scan-food', async (req, res) => {
   try {
