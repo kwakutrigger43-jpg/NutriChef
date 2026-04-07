@@ -1,3 +1,6 @@
+// 2. src/pages/Pantry.jsx
+// Paste this into: https://github.com/kwakutrigger43-jpg/NutriChef/edit/main/src/pages/Pantry.jsx
+
 import { useState } from 'react';
 import { ChefHat, X, Sparkles, Clock, Flame, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,8 +33,8 @@ export default function Pantry() {
     setIsGenerating(true);
     
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const res = await fetch(`${API_URL}/generate-recipes`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${API_URL}/api/generate-recipes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients })
@@ -129,7 +132,6 @@ export default function Pantry() {
                 className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
               >
                 <div className="h-32 bg-gray-200 relative">
-                  {/* Using a placeholder gradient if image fails to load quickly, but we have URL */}
                   <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <h4 className="absolute bottom-3 left-4 right-4 text-white font-bold text-lg leading-tight">{recipe.title}</h4>
@@ -216,7 +218,6 @@ export default function Pantry() {
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }
