@@ -17,6 +17,17 @@ app.get('/', (req, res) => {
   res.send('NutriChef AI Backend is Online! 🚀');
 });
 
+// Debug: List available models for this API key
+app.get('/api/debug-models', async (req, res) => {
+  try {
+    if (!genAI) return res.json({ error: "No API Key configured on server." });
+    const models = await genAI.listModels();
+    res.json(models);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Endpoint: Scan Food (Google Gemini Vision)
 app.post('/api/scan-food', async (req, res) => {
   try {
